@@ -1,0 +1,127 @@
+#include <iostream>     
+#include <vector>       
+#include <queue>        
+#include <omp.h>        
+#include <chrono>       
+ 
+using namespace std;    
+using namespace chrono;  
+ 
+class Graph {
+    int V;                      
+    vector<vector<int>> adj;    
+ 
+public:
+    Graph(int V);                
+    void addEdge(int v, int w);   
+    void sequentialBFS(int start); 
+    void parallelBFS(int start);   
+};
+ 
+Graph::Graph(int V) {
+    this->V = V;          
+    adj.resize(V);        
+}
+ 
+ 
+void Graph::addEdge(int v, int w) {
+    adj[v].push_back(w);  
+    adj[w].push_back(v);  
+}
+ 
+void Graph::sequentialBFS(int start) {
+    vector<bool> visited(V, false);   
+    queue<int> q;                  
+ 
+    visited[start] = true; 
+    q.push(start);          
+ 
+    cout << "Sequential BFS: ";
+ 
+    
+    while (!q.empty()) {
+        int u = q.front();  
+        q.pop();            
+        cout << u << " ";   
+ 
+        for (auto v : adj[u]) {
+            if (!visited[v]) {      
+                visited[v] = true;   
+                q.push(v);            
+            }
+        }
+    }
+    cout << endl; 
+}
+ 
+void Graph::parallelBFS(int start) {
+    vector<bool> visited(V, false);
+    queue<int> q;                  
+ 
+    visited[start] = true; 
+    q.push(start);          
+ 
+    cout << "Parallel BFS: ";
+ 
+    while (!q.empty()) {
+        int qSize = q.size();         
+        vector<int> currentLevel;      
+ 
+        for (int i = 0; i < qSize; i++) {
+            int u = q.front();         
+            q.pop();                   
+            cout << u << " ";           
+            currentLevel.push_back(u); 
+        }
+ 
+        #pragma omp parallel for
+        for (int i = 0; i < currentLevel.size(); i++) {
+            int u = currentLevel[i]; 
+            for (auto v : adj[u]) {   
+                #pragma omp critical   
+                {
+                    if (!visited[v]) {  
+                        visited[v] = true;  
+                        q.push(v);          
+                    }
+                }
+            }
+        }
+    }
+    cout << endl; 
+    
+}
+int main() {
+    int V, E;  
+ 
+    cout << "Enter number of vertices and edges: ";
+    cin >> V >> E;  
+ 
+    Graph g(V);
+    cout << "Enter edges (u v):" << endl;
+    for (int i = 0; i < E; i++) {
+        int u, v;
+        cin >> u >> v;    
+        g.addEdge(u, v);   
+    }
+ 
+    int start;   
+    cout << "Enter starting vertex: ";
+    cin >> start; 
+ 
+ 
+    auto start_seq = high_resolution_clock::now();   
+    g.sequentialBFS(start);                          
+    auto end_seq = high_resolution_clock::now();     
+    auto duration_seq = duration_cast<microseconds>(end_seq - start_seq); 
+    cout << "Sequential BFS Time: " << duration_seq.count() << " microseconds" << endl;
+ 
+ 
+    auto start_par = high_resolution_clock::now();  
+    g.parallelBFS(start);                           
+    auto end_par = high_resolution_clock::now();   
+    auto duration_par = duration_cast<microseconds>(end_par - start_par); 
+    cout << "Parallel BFS Time: " << duration_par.count() << " microseconds" << endl;
+ 
+    return 0;
+}
